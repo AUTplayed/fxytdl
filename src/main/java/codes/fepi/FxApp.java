@@ -1,7 +1,7 @@
 package codes.fepi;
 
 import codes.fepi.scenes.AbstractScene;
-import codes.fepi.scenes.VideoScene;
+import codes.fepi.scenes.SystemScene;
 import javafx.application.Application;
 import javafx.application.HostServices;
 import javafx.stage.Stage;
@@ -17,7 +17,8 @@ public class FxApp extends Application {
 	public void start(Stage stage) {
 		FxApp.stage = stage;
 		FxApp.hostServices = getHostServices();
-		changeScene(VideoScene.class);
+		stage.setTitle("FxYtdl");
+		changeScene(SystemScene.class);
 		stage.show();
 	}
 
