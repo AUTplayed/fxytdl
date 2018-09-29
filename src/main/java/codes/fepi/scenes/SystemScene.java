@@ -6,19 +6,19 @@ import codes.fepi.core.LibraryUpdater;
 import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ProgressBar;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class SystemScene extends AbstractScene {
 
 	private DoubleProperty progress;
+	private AtomicInteger runningUpdaters = new AtomicInteger(0);
 
 	public SystemScene(Stage stage) {
 		super(stage);
@@ -36,7 +36,13 @@ public class SystemScene extends AbstractScene {
 		Button download = new CallbackButton("download", () -> FxApp.changeScene(DownloadScene.class));
 		HBox downloadBox = new HBox(download);
 		downloadBox.setAlignment(Pos.CENTER);
-		VBox holder = new VBox(updateBox, downloadBox);
+		Label title = new Label("Fx youtube downloader");
+		title.setFont(Font.font(18));
+		Label author = new Label("by github.com/AUTplayed");
+		author.setFont(Font.font(10));
+		Label hint = new Label("update both libs before your first download");
+		hint.setFont(Font.font(10));
+		VBox holder = new VBox(title, author, hint, updateBox, downloadBox);
 		holder.setAlignment(Pos.CENTER);
 		holder.setSpacing(20);
 		anchorNode(holder, 10d, 10d, 40d, 10d);
@@ -48,29 +54,31 @@ public class SystemScene extends AbstractScene {
 		root.getChildren().addAll(holder, progressBar);
 	}
 
-	private void updateYTDL(Node button) {
+	private void updateYTDL(Button button) {
 		progress.setValue(ProgressBar.INDETERMINATE_PROGRESS);
 		button.setDisable(true);
+		runningUpdaters.incrementAndGet();
 		LibraryUpdater.updateYTDL((exception) -> alertStatus(button, exception));
 	}
 
-	private void updateFFMPEG(Node button) {
+	private void updateFFMPEG(Button button) {
 		progress.setValue(ProgressBar.INDETERMINATE_PROGRESS);
 		button.setDisable(true);
+		runningUpdaters.incrementAndGet();
 		LibraryUpdater.updateFFMPEG((exception) -> alertStatus(button, exception));
 	}
 
-	private void alertStatus(Node button, Exception exception) {
+	private void alertStatus(Button button, Exception exception) {
 		Platform.runLater(() -> {
-			progress.setValue(0);
+			if (runningUpdaters.decrementAndGet() == 0) {
+				progress.setValue(0);
+			}
 			button.setDisable(false);
 			if (exception != null) {
-				Alert alert = new Alert(Alert.AlertType.ERROR, exception.getMessage(), ButtonType.CLOSE);
-				alert.show();
+				alertException(exception);
 			} else {
 				Alert alert = new Alert(Alert.AlertType.INFORMATION, "Successfully finished", ButtonType.OK);
-
-				alert.setHeaderText(((Button) button).getText());
+				alert.setHeaderText(button.getText());
 				alert.show();
 			}
 		});

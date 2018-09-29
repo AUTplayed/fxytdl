@@ -23,13 +23,13 @@ public class Properties {
 
 	public static Path getFfmpegPath() {
 		if (win) {
-			return getTempPath().resolve("ffmpeg.exe").toAbsolutePath();
+			return getLibPath().resolve("ffmpeg.exe").toAbsolutePath();
 		}
 		return null;
 	}
 
 	public static Path getYtdlPath() {
-		return getTempPath().resolve("ytdl").toAbsolutePath();
+		return getLibPath().resolve("ytdl").toAbsolutePath();
 	}
 
 	public static Path getOutputPath() {
@@ -40,8 +40,8 @@ public class Properties {
 		return out;
 	}
 
-	public static Path getTempPath() {
-		Path temp = folder.resolve("temp");
+	public static Path getLibPath() {
+		Path temp = folder.resolve("lib");
 		if (!temp.toFile().exists()) {
 			temp.toFile().mkdir();
 		}

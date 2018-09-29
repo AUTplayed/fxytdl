@@ -51,7 +51,7 @@ public class LibraryUpdater {
 				String zipName = "ffmpeg.zip";
 				downloadFile(zipName, new URL(downloadLink));
 				unzipArchive(zipName);
-				Properties.getTempPath().resolve(zipName).toFile().delete();
+				Properties.getLibPath().resolve(zipName).toFile().delete();
 				finished.accept(null);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -96,7 +96,7 @@ public class LibraryUpdater {
 		URLConnection req = Objects.requireNonNull(url).openConnection();
 		req.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
 		InputStream is = req.getInputStream();
-		Path filepath = Properties.getTempPath().resolve(name);
+		Path filepath = Properties.getLibPath().resolve(name);
 		File file = new File(filepath.toUri());
 		FileOutputStream fo = new FileOutputStream(file);
 		byte[] buffer = new byte[4096];
@@ -111,7 +111,7 @@ public class LibraryUpdater {
 
 	private static void unzipArchive(String archiveName) throws IOException {
 		byte[] buffer = new byte[1024];
-		ZipInputStream zis = new ZipInputStream(new FileInputStream(Properties.getTempPath().resolve(archiveName).toFile()));
+		ZipInputStream zis = new ZipInputStream(new FileInputStream(Properties.getLibPath().resolve(archiveName).toFile()));
 		ZipEntry zipEntry = zis.getNextEntry();
 		while (zipEntry != null) {
 			String fileName = zipEntry.getName();
@@ -120,7 +120,7 @@ public class LibraryUpdater {
 			if (fileName.contains(binRegex)) {
 				fileName = fileName.replaceFirst(".*" + binRegex, "");
 				if (!fileName.isEmpty()) {
-					File extractedFile = Properties.getTempPath().resolve(fileName).toFile();
+					File extractedFile = Properties.getLibPath().resolve(fileName).toFile();
 					FileOutputStream fos = new FileOutputStream(extractedFile);
 					int len;
 					while ((len = zis.read(buffer)) > 0) {

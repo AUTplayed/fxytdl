@@ -1,6 +1,6 @@
 package codes.fepi.core;
 
-import codes.fepi.Video;
+import codes.fepi.entities.Video;
 import javafx.beans.property.DoubleProperty;
 
 import java.util.List;

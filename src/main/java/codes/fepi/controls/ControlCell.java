@@ -19,4 +19,6 @@ public class ControlCell<S, T> extends TableCell<S, T> {
 		Node node = creator.apply(item);
 		setGraphic(node != null ? node : new Pane());
 	}
+
+
 }

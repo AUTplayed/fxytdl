@@ -1,4 +1,4 @@
-package codes.fepi;
+package codes.fepi.entities;
 
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -7,20 +7,17 @@ public class Video {
 	private String title;
 	private String url;
 	private BooleanProperty download;
-	private boolean inProgress;
+	private BooleanProperty inProgress;
 
 	public Video(String title, String url, boolean download) {
-		this.title = title;
-		this.url = url;
-		this.download = new SimpleBooleanProperty(download);
-		this.inProgress = false;
+		this(title, url, download, false);
 	}
 
 	public Video(String title, String url, boolean download, boolean inProgress) {
 		this.title = title;
 		this.url = url;
 		this.download = new SimpleBooleanProperty(download);
-		this.inProgress = inProgress;
+		this.inProgress = new SimpleBooleanProperty(false);
 	}
 
 	public String getTitle() {
@@ -52,11 +49,15 @@ public class Video {
 	}
 
 	public boolean isInProgress() {
+		return inProgress.get();
+	}
+
+	public BooleanProperty inProgressProperty() {
 		return inProgress;
 	}
 
 	public void setInProgress(boolean inProgress) {
-		this.inProgress = inProgress;
+		this.inProgress.set(inProgress);
 	}
 
 	@Override

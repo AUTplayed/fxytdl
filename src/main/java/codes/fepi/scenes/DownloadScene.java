@@ -1,16 +1,20 @@
 package codes.fepi.scenes;
 
 import codes.fepi.FxApp;
-import codes.fepi.Video;
 import codes.fepi.controls.CallbackButton;
 import codes.fepi.controls.ControlCell;
+import codes.fepi.core.AudioFormat;
+import codes.fepi.core.PlaylistStatus;
 import codes.fepi.core.YTDL;
+import codes.fepi.entities.Video;
 import codes.fepi.global.Properties;
 import com.sun.javafx.scene.control.skin.TableViewSkin;
 import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.StringProperty;
+import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -18,20 +22,27 @@ import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class DownloadScene extends AbstractScene {
 
-	private ObservableList<Video> videoList;
+	private FilteredList<Video> videoList;
 	private TableView<Video> videoTable;
 	private DoubleProperty progressValue;
 	private StringProperty playlistText;
+	private Label countLabel;
+	private SelectionModel<AudioFormat> selectedAudioFormat;
 
 	public DownloadScene(Stage stage) {
 		super(stage);
@@ -45,29 +56,52 @@ public class DownloadScene extends AbstractScene {
 
 		videoTable = createVideoTable();
 		styleVideoTable(videoTable);
-		videoList = videoTable.getItems();
-
+		videoList = new FilteredList<>(videoTable.getItems());
+		videoTable.setItems(videoList);
+		Node searchBox = createSearchBox();
 		ProgressBar progressBar = createProgressBar();
 		styleProgressBar(progressBar);
 
 		Node buttons = createButtonsBar();
-		root.getChildren().addAll(playlistInput, videoTable, progressBar, buttons);
-
-		/*for (int i = 0; i < 20; i++) {
-			boolean random = ((int) (Math.random() * 100)) % 2 == 0;
-			videoList.add(new Video(UUID.randomUUID().toString(), "https://youtube.com", random, random));
-		}*/
+		root.getChildren().addAll(playlistInput, searchBox, videoTable, progressBar, buttons);
 	}
 
-	private void download() {
-		List<Video> toDownload = videoList.stream().filter(Video::isDownload).collect(Collectors.toList());
-		YTDL.downloadVideos(toDownload, (video, exception) -> {
-			System.out.println(video);
-			if(exception != null) {
-				exception.printStackTrace();
-			}
+	private void download(Button button) {
+		button.setDisable(true);
+		progressValue.setValue(0);
+		ObservableList<Video> toDownload = videoList.getSource().stream().filter(Video::isDownload).collect(Collectors.toCollection(FXCollections::observableArrayList));
+		toDownload.get(0).setInProgress(true);
+		AtomicInteger downloaded = new AtomicInteger(0);
+		List<Video> succVideos = new ArrayList<>(toDownload.size());
+		YTDL.downloadVideos(toDownload, selectedAudioFormat.getSelectedItem(), (video, exception) -> {
+			Platform.runLater(() -> {
+				downloaded.incrementAndGet();
+				video.setInProgress(false);
+				progressValue.setValue(downloaded.get() / (double) toDownload.size());
+				if (exception != null) {
+					alertException(exception);
+				} else {
+					succVideos.add(video);
+					video.setDownload(false);
+				}
+			});
 		}, () -> {
-			System.out.println("finished");
+			try {
+				// clear temp files that are left behind after download failure
+				File[] files = Properties.getOutputPath().toFile().listFiles((dir, name) -> name.endsWith(".temp"));
+				if (files != null) {
+					for (File file : files) {
+						file.delete();
+					}
+				}
+				PlaylistStatus.updateDownloadedVideos(succVideos);
+			} catch (IOException e) {
+				alertException(e);
+			}
+			Platform.runLater(() -> {
+				button.setDisable(false);
+				System.out.println("finished");
+			});
 		});
 	}
 
@@ -75,31 +109,38 @@ public class DownloadScene extends AbstractScene {
 		TextField textField = new TextField();
 		textField.setPromptText("your playlist url");
 		playlistText = textField.textProperty();
-		anchorNode(textField, null, 100d, null, 0d);
+		anchorNode(textField, null, 200d, null, 0d);
 
-		Button checkPlaylist = new CallbackButton("check playlist", this::checkPlaylist);
-		anchorNode(checkPlaylist, null, 0d, null, null);
+		Button checkPlaylist = new CallbackButton("check playlist", this::checkPlaylist, true);
+		Button checkPlaylistClear = new CallbackButton("check noclear", this::checkPlaylist, false);
+		anchorNode(checkPlaylist, null, 100d, null, null);
+		anchorNode(checkPlaylistClear, null, 0d, null, null);
 
-		AnchorPane box = new AnchorPane(textField, checkPlaylist);
+		AnchorPane box = new AnchorPane(textField, checkPlaylist, checkPlaylistClear);
 		anchorNode(box, 10d, 10d, null, 10d);
 		return box;
 	}
 
-	private void checkPlaylist(Node button) {
+	private void checkPlaylist(Button button, Object[] args) {
+		boolean clear = (boolean) args[0];
 		button.setDisable(true);
 		progressValue.setValue(ProgressBar.INDETERMINATE_PROGRESS);
 		YTDL.checkPlaylist(URI.create(playlistText.get()), videos -> {
 			Platform.runLater(() -> {
-				videoList.clear();
-				videoList.addAll(videos);
+				if (clear) {
+					videoList.getSource().clear();
+				}
+				((ObservableList<Video>) videoList.getSource()).addAll(videos);
 				resizeColumns(videoTable);
 				button.setDisable(false);
 				progressValue.setValue(0);
+				countLabel.setText(String.format("%d/%d", videoList.size(), videoList.getSource().size()));
 			});
 		}, e -> {
 			Platform.runLater(() -> {
-				Alert error = new Alert(Alert.AlertType.ERROR, e.getMessage(), ButtonType.CLOSE);
-				error.show();
+				alertException(e);
+				button.setDisable(false);
+				progressValue.setValue(0);
 			});
 		});
 	}
@@ -109,7 +150,11 @@ public class DownloadScene extends AbstractScene {
 		Button checkAll = new CallbackButton("check all", () -> videoList.forEach(video -> video.setDownload(true)));
 		Button uncheckAll = new CallbackButton("uncheck all", () -> videoList.forEach(video -> video.setDownload(false)));
 		Button download = new CallbackButton("download", this::download);
-		HBox hBox = new HBox(back, checkAll, uncheckAll, download);
+		ComboBox<AudioFormat> formatComboBox = new ComboBox<>();
+		formatComboBox.getItems().addAll(AudioFormat.values());
+		selectedAudioFormat = formatComboBox.getSelectionModel();
+		selectedAudioFormat.select(AudioFormat.aac);
+		HBox hBox = new HBox(back, checkAll, uncheckAll, download, formatComboBox);
 		hBox.setSpacing(10);
 		hBox.setAlignment(Pos.CENTER);
 		anchorNode(hBox, null, 10d, 10d, 10d);
@@ -124,6 +169,23 @@ public class DownloadScene extends AbstractScene {
 		ProgressBar progressBar = new ProgressBar(0);
 		progressValue = progressBar.progressProperty();
 		return progressBar;
+	}
+
+	private Node createSearchBox() {
+		countLabel = new Label();
+		countLabel.setFont(Font.font(18));
+		anchorNode(countLabel, null, 0d, null, null);
+		TextField textField = new TextField();
+		textField.setPromptText("search");
+		textField.setOnKeyReleased(event -> {
+			videoList.setPredicate(video -> video.getTitle().toLowerCase().contains(textField.textProperty().get()));
+			countLabel.setText(String.format("%d/%d", videoList.size(), videoList.getSource().size()));
+		});
+		anchorNode(textField, null, 100d, null, 0d);
+
+		AnchorPane anchorPane = new AnchorPane(textField, countLabel);
+		anchorNode(anchorPane, 40d, 10d, null, 10d);
+		return anchorPane;
 	}
 
 	private TableView<Video> createVideoTable() {
@@ -145,14 +207,23 @@ public class DownloadScene extends AbstractScene {
 			return null;
 		}));
 
-
+		videoTable.setRowFactory(tv -> {
+			TableRow<Video> row = new TableRow<>();
+			row.setOnMouseClicked(event -> {
+				if (event.getClickCount() == 2 && (!row.isEmpty())) {
+					Video video = row.getItem();
+					video.setDownload(!video.isDownload());
+				}
+			});
+			return row;
+		});
 		videoTable.setEditable(true);
 		return videoTable;
 	}
 
 	private void styleVideoTable(TableView<Video> videos) {
 		videos.setPrefWidth(600);
-		anchorNode(videos, 40d, 10d, 70d, 10d);
+		anchorNode(videos, 70d, 10d, 70d, 10d);
 	}
 
 	private <S, T> void addSimpleColumns(TableView<S> table, String... properties) {
