@@ -58,4 +58,19 @@ public class Video {
 	public void setInProgress(boolean inProgress) {
 		this.inProgress = inProgress;
 	}
+
+	@Override
+	public String toString() {
+		return "Video{" +
+				"title='" + title + '\'' +
+				", url='" + url + '\'' +
+				", download=" + download +
+				", inProgress=" + inProgress +
+				'}';
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		return this.url.equals(((Video) obj).getUrl());
+	}
 }

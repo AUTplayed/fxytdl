@@ -1,6 +1,6 @@
 package codes.fepi.core;
 
-import codes.fepi.FxApp;
+import codes.fepi.global.Properties;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.jsoup.Jsoup;
@@ -10,27 +10,15 @@ import org.jsoup.select.Elements;
 
 import java.io.*;
 import java.net.HttpURLConnection;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public class LibraryUpdater {
-
-	static Path folder;
-
-	static {
-		try {
-			folder = Paths.get(FxApp.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
-		} catch (URISyntaxException e) {
-			e.printStackTrace();
-		}
-	}
 
 	public static void updateYTDL(Consumer<Exception> finished) {
 		Thread updaterThread = new Thread(() -> {
@@ -47,7 +35,7 @@ public class LibraryUpdater {
 
 	public static void updateFFMPEG(Consumer<Exception> finished) {
 		Thread updaterThread = new Thread(() -> {
-			if (!System.getProperty("os.name").toLowerCase().contains("win")) {
+			if (!Properties.win) {
 				finished.accept(new Exception("nix* os detected, please use a package manager of your choosing to download ffmpeg"));
 				return;
 			}
@@ -63,7 +51,7 @@ public class LibraryUpdater {
 				String zipName = "ffmpeg.zip";
 				downloadFile(zipName, new URL(downloadLink));
 				unzipArchive(zipName);
-				folder.resolve(zipName).toFile().delete();
+				Properties.getTempPath().resolve(zipName).toFile().delete();
 				finished.accept(null);
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -90,7 +78,7 @@ public class LibraryUpdater {
 		String res = sb.toString();
 		JSONObject json = new JSONObject(res);
 		JSONArray assets = json.getJSONArray("assets");
-		if (System.getProperty("os.name").toLowerCase().contains("win")) {
+		if (Properties.win) {
 			target += ".exe";
 		}
 		for (int i = 0; i < assets.length(); i++) {
@@ -108,7 +96,7 @@ public class LibraryUpdater {
 		URLConnection req = Objects.requireNonNull(url).openConnection();
 		req.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
 		InputStream is = req.getInputStream();
-		Path filepath = folder.resolve(name);
+		Path filepath = Properties.getTempPath().resolve(name);
 		File file = new File(filepath.toUri());
 		FileOutputStream fo = new FileOutputStream(file);
 		byte[] buffer = new byte[4096];
@@ -123,7 +111,7 @@ public class LibraryUpdater {
 
 	private static void unzipArchive(String archiveName) throws IOException {
 		byte[] buffer = new byte[1024];
-		ZipInputStream zis = new ZipInputStream(new FileInputStream(folder.resolve(archiveName).toFile()));
+		ZipInputStream zis = new ZipInputStream(new FileInputStream(Properties.getTempPath().resolve(archiveName).toFile()));
 		ZipEntry zipEntry = zis.getNextEntry();
 		while (zipEntry != null) {
 			String fileName = zipEntry.getName();
@@ -132,7 +120,7 @@ public class LibraryUpdater {
 			if (fileName.contains(binRegex)) {
 				fileName = fileName.replaceFirst(".*" + binRegex, "");
 				if (!fileName.isEmpty()) {
-					File extractedFile = folder.resolve(fileName).toFile();
+					File extractedFile = Properties.getTempPath().resolve(fileName).toFile();
 					FileOutputStream fos = new FileOutputStream(extractedFile);
 					int len;
 					while ((len = zis.read(buffer)) > 0) {

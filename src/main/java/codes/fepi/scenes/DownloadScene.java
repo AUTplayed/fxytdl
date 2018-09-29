@@ -5,6 +5,7 @@ import codes.fepi.Video;
 import codes.fepi.controls.CallbackButton;
 import codes.fepi.controls.ControlCell;
 import codes.fepi.core.YTDL;
+import codes.fepi.global.Properties;
 import com.sun.javafx.scene.control.skin.TableViewSkin;
 import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
@@ -60,6 +61,14 @@ public class DownloadScene extends AbstractScene {
 
 	private void download() {
 		List<Video> toDownload = videoList.stream().filter(Video::isDownload).collect(Collectors.toList());
+		YTDL.downloadVideos(toDownload, (video, exception) -> {
+			System.out.println(video);
+			if(exception != null) {
+				exception.printStackTrace();
+			}
+		}, () -> {
+			System.out.println("finished");
+		});
 	}
 
 	private Node createPlaylistInput() {
@@ -123,7 +132,7 @@ public class DownloadScene extends AbstractScene {
 		addColumn(videoTable, "download", CheckBoxTableCell::new);
 		addColumn(videoTable, "url", () -> new ControlCell<Video, String>(url -> {
 			Hyperlink hyperlink = new Hyperlink(url);
-			hyperlink.setOnAction(event -> FxApp.hostServices.showDocument("https://youtube.com/watch?v=" + url));
+			hyperlink.setOnAction(event -> FxApp.hostServices.showDocument(Properties.ytBaseUrl + url));
 			return hyperlink;
 		}));
 		addColumn(videoTable, "inProgress", () -> new ControlCell<Video, Boolean>(inProgress -> {
